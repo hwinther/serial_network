@@ -1,0 +1,74 @@
+PREAMBLE 0xAA
+SOM      0xC5
+EOM      0x5C
+POSTAMBLE 0x3A
+POLYNOMINAL 0x8C
+
+
+packet
+======
+h0	dlen | opt
+h1	ttl | chk
+h2	pid | seq
+a3	source
+a4	destination
+d5	data
+d6	data
+d7	data
+d8	data
+d9	data
+
+
+h0 data length | options
+======
+0000	=0 data bytes
+0001	=1 data byte
+0010	=2 data bytes
+0011	=3 data bytes
+0100	=4 data bytes
+0101	=5 data bytes
+0110	6 everything after this is basically a waste of space right now, but it might be useful later
+0111	7
+1000	8
+1001	9
+1010	10
+1011	11
+1100	12
+1101	13
+1110	14
+1111	15
+	0000 = raw (protocol)
+	0001 = icmp
+	0010 = (reserved)
+	0100 = (reserved)
+	1000 = forwarding desired (0 = no forwarding)
+
+
+h1 time to live | checksum
+========
+0	ttl0
+1	ttl1
+2	ttl2
+4	ttl4	= 128 possible values
+8	chk0
+16	chk1
+32	chk2
+128	chk4	= 128 possible values
+
+
+h2 packet identification | sequence number
+========
+0	pid0
+1	pid1
+2	pid2
+4	pid4	= 128 possible values
+8	seq0
+16	seq1
+32	seq2
+128	seq4	= 128 possible values
+
+
+a3 && a4
+========
+unique address space in a logical network block
+addresses 0 and 255 reserved for anycast and broadcast
