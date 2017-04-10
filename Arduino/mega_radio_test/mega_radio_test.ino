@@ -1,4 +1,5 @@
 //#include <xstddef>
+#include "WshPacket.h"
 const uint8_t PREAMBLE_BYTE = 0xAA; //170
 const uint8_t SOM_BYTE = 0xC5; //197
 const uint8_t EOM_BYTE = 0x5C; //92
@@ -92,6 +93,8 @@ void loop() {
 		}
 
 		//TODO: checksum validation
+
+		WshPacket packet = WshPacket(packetData);
 
 		if (destination == 255 || destination == LOCAL_ADDRESS)
 		{
