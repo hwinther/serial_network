@@ -226,7 +226,9 @@ class IcmpPongPacket(Packet):
 
 class ReceiveHandler(Thread):
     def __init__(self, packet_handler):
-        super(Thread, self).__init__()
+        # super(Thread, self).__init__()
+        # TODO: what is the difference?
+        Thread.__init__(self)
         self.StopEvent = Event()
         self.packetHandler = packet_handler
 
@@ -257,11 +259,13 @@ class PacketHandler(Thread):
         # handle_packet runs in its own thread and can take all the time it wants to process
         if packet.source == LOCAL_ADDRESS:
             print 'Ignoring packet from self'
+            packet.print_raw()
         elif packet.destination in [LOCAL_ADDRESS, 255]:
             print 'Received', str(packet)
             self.ReceiveBuffer.append(packet)
         else:
-            print 'Ignoring packet that isnt for me'
+            print 'Ignoring packet that isn\'t for me'
+            packet.print_raw()
 
     def send(self, packet):
         # type: (Packet) -> None
@@ -304,6 +308,7 @@ class SocketPacketHandler(PacketHandler):
         self.Sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.Sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         self.Sock.bind(('', 5151))
+        self.PacketParser = PacketParser()
 
     def run(self):
         # TODO: split this up so that base actually holds execution and calls override methods?
@@ -311,14 +316,16 @@ class SocketPacketHandler(PacketHandler):
         while not self.StopEvent.is_set():
             self.Sock.settimeout(1.0)
             try:
-                data, address = self.Sock.recvfrom(1024)
+                received_data, client_address = self.Sock.recvfrom(1024)
             except socket.timeout:
                 continue
-            # TODO: handle buffer assembly
-            # print 'repr', repr(data), address
+            # TODO: handle buffer assembly for multiple clients
+            # print 'repr', repr(received_data), address
             # TODO: handle packet content parsing (start at SOM, end at EOM, maybe also do a checksum)
-            packet = Packet(data)
-            self.recv(packet)
+            self.PacketParser.parse_buffer(received_data)
+            for packet in self.PacketParser.Packets:
+                self.recv(packet)
+                self.PacketParser.Packets.remove(packet)
 
     def handle_packet(self, packet):
         # type: (Packet) -> None
@@ -330,53 +337,33 @@ class SocketPacketHandler(PacketHandler):
         self.Sock.sendto(packet.get_packet_data(), ('255.255.255.255', 5151))
 
 
-class Test:
-    def __init__(self):
-        self.packetHandler = SocketPacketHandler()
-        self.StopEvents = list()
-        self.StopEvents.extend(self.packetHandler.StopEvents)
+class SerialPacketHandler(PacketHandler):
+    def __init__(self, port=None, baud=None):
+        super(SerialPacketHandler, self).__init__()
+        if port is None:
+            port = 'COM3'
+        if baud is None:
+            baud = 2400
+        self.Serial = serial.Serial(port, baud, timeout=1)
+        self.PacketParser = PacketParser()
 
     def run(self):
-        self.packetHandler.start()
-        time.sleep(0.2)
-        self.packetHandler.send_ping(255)
-        print 'wait'
-        try:
-            raw_input('> ')
-        except:
-            pass
+        print 'reading data from serial port ' + self.Serial.port
+        while not self.StopEvent.is_set():
+            received_data = self.Serial.read(100)
+            self.PacketParser.parse_buffer(received_data)
+            for packet in self.PacketParser.Packets:
+                self.recv(packet)
+                self.PacketParser.Packets.remove(packet)
 
-        print 'exiting'
-        for stopEvent in self.StopEvents:
-            stopEvent.set()
+    def handle_packet(self, packet):
+        # type: (Packet) -> None
+        super(SerialPacketHandler, self).handle_packet(packet)
 
-
-def run_tests():
-    print '\nGenerating packet from string'
-    p = Packet(chr(PREAMBLE) + chr(PREAMBLE) + chr(SOM) + chr(0b00000001) + chr(0b00000010) + chr(0b00000000) +
-               chr(1) + chr(2) + chr(EOM) + chr(POSTAMBLE) + chr(POSTAMBLE) + chr(POSTAMBLE) + chr(POSTAMBLE) +
-               chr(POSTAMBLE))
-    # print p
-    # print p.is_valid_checksum()
-    p.print_raw()
-
-    print '\nGenerating packet by param input'
-    p2 = Packet.craft_packet(src=1, dst=2, opt=PROTO_ICMP, data='')
-    # print p2
-    # print p2.is_valid_checksum()
-    p2.print_raw()
-
-    print '\np1 == p2?', p == p2
-    # print p is p2
-
-    print '\nCreating sample ping packet'
-    ping = IcmpPingPacket.craft_packet(src=1, dst=2, ttl=15)
-    ping.print_raw()
-
-    print '\nCreating sample pong packet'
-    # Consider making this craft_response and override it where relevant
-    pong = ping.craft_pong_response()
-    pong.print_raw()
+    def send(self, packet):
+        # type: (Packet) -> None
+        super(SerialPacketHandler, self).send(packet)
+        self.Serial.write(chr(POLYNOMIAL)*5 + chr(PREAMBLE)*2 + chr(SOM) + packet.get_packet_data() + chr(EOM) + chr(POSTAMBLE)*4)
 
 
 class PacketParser:
@@ -421,10 +408,62 @@ class PacketParser:
         self.packetBuffer = rest
 
 
+class Test:
+    def __init__(self):
+        # self.packetHandler = SocketPacketHandler()
+        self.packetHandler = SerialPacketHandler()
+        self.StopEvents = list()
+        self.StopEvents.extend(self.packetHandler.StopEvents)
+
+    def run(self):
+        self.packetHandler.start()
+        time.sleep(0.2)
+        while True:
+            self.packetHandler.send_ping(255)
+            print 'ping'
+            try:
+                raw_input('> ')
+            except:
+                break
+
+        print 'exiting'
+        for stopEvent in self.StopEvents:
+            stopEvent.set()
+
+
+def run_tests():
+    print '\nGenerating packet from string'
+    p = Packet(chr(PREAMBLE) + chr(PREAMBLE) + chr(SOM) + chr(0b00000001) + chr(0b00000010) + chr(0b00000000) +
+               chr(1) + chr(2) + chr(EOM) + chr(POSTAMBLE) + chr(POSTAMBLE) + chr(POSTAMBLE) + chr(POSTAMBLE) +
+               chr(POSTAMBLE))
+    # print p
+    # print p.is_valid_checksum()
+    p.print_raw()
+
+    print '\nGenerating packet by param input'
+    p2 = Packet.craft_packet(src=1, dst=2, opt=PROTO_ICMP, data='')
+    # print p2
+    # print p2.is_valid_checksum()
+    p2.print_raw()
+
+    print '\np1 == p2?', p == p2
+    # print p is p2
+
+    print '\nCreating sample ping packet'
+    ping = IcmpPingPacket.craft_packet(src=1, dst=2, ttl=15)
+    ping.print_raw()
+
+    print '\nCreating sample pong packet'
+    # Consider making this craft_response and override it where relevant
+    pong = ping.craft_pong_response()
+    pong.print_raw()
+
+
 if __name__ == '__main__':
-    # test = Test()
-    # test.run()
+    test = Test()
+    test.run()
     # run_tests()
+    sys.exit(0)
 
     ser = serial.Serial('COM3', 2400, timeout=1)
     ping = IcmpPingPacket.craft_packet(src=LOCAL_ADDRESS, dst=10, ttl=15)
@@ -447,34 +486,6 @@ if __name__ == '__main__':
             # pop it
             pp.Packets.remove(p)
 
-        # if packetData != '':
-        #     packetBuffer = packetBuffer + packetData
-        #     # print repr(packetData)
-        #     rest = ''
-        #     splitChars = chr(PREAMBLE) + chr(PREAMBLE) + chr(SOM)
-        #     endChars = chr(EOM) + chr(POSTAMBLE) + chr(POSTAMBLE)
-        #     for segment in packetBuffer.split(splitChars):
-        #         if segment == '' or segment == len(segment) * chr(POLYNOMIAL):
-        #             # the segment empty or only POLYNOMIAL, ignore it
-        #             pass
-        #         elif segment.find(endChars) != -1:
-        #             print len(segment), 'segment', ' '.join([str(ord(x)) for x in list(segment)])
-        #             s = segment.split(endChars)[0]  # discard everything after
-        #             # print repr(segment.split(endChars))
-        #             print len(s), 's', ' '.join([str(ord(x)) for x in list(s)])
-        #             # som_pos = data.find(chr(SOM))
-        #             # test = packetData[som_pos+1:som_pos+9]
-        #             # print 'test', repr(test), len(test)
-        #             packet = Packet(s)
-        #             packet.print_raw()
-        #             print '\n'
-        #             # print 'checksum', packet.is_valid_checksum()
-        #         else:
-        #             print len(segment), 'rest segment', ' '.join([str(ord(x)) for x in list(segment)])
-        #             rest += splitChars + segment
-        #     if rest != '':
-        #         print len(rest), 'rest is', ' '.join([str(ord(x)) for x in list(rest)])
-        #     packetBuffer = rest
         try:
             time.sleep(1)
         except:
