@@ -1,12 +1,12 @@
 #pragma once
 #include <stdint.h>
-class WshPacket
+class Packet
 {
 
 public:
-	WshPacket();
-	WshPacket(uint8_t *packetData);
-	~WshPacket();
+	Packet();
+	Packet(uint8_t *packetData);
+	~Packet();
 
 	uint8_t PacketData[10];
 
@@ -28,5 +28,5 @@ public:
 	void set_source(uint8_t value);
 	void set_destination(uint8_t value);
 
-	void WshPacket::set_data(uint8_t *value);
+	void Packet::set_data(uint8_t *value);
 };

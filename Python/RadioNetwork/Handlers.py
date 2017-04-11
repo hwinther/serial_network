@@ -1,0 +1,189 @@
+from threading import Thread, Event
+import datetime
+import socket
+import serial
+from Protocol import *
+from Packet import Packet, IcmpPingPacket, IcmpPongPacket, LOCAL_ADDRESS
+
+class ReceiveHandler(Thread):
+    def __init__(self, packet_handler):
+        # super(Thread, self).__init__()
+        # TODO: what is the difference?
+        Thread.__init__(self)
+        self.StopEvent = Event()
+        self.packetHandler = packet_handler
+
+    def run(self):
+        while not self.StopEvent.is_set():
+            for packet in self.packetHandler.ReceiveBuffer:
+                self.packetHandler.handle_packet(packet)
+                # TOOD: assuming we want to remove it after for now
+                self.packetHandler.ReceiveBuffer.remove(packet)
+
+
+class PacketHandler(Thread):
+    def __init__(self):
+        Thread.__init__(self)
+        self.ReceiveBuffer = list()
+        self.StopEvent = Event()
+        self.receiveHandler = ReceiveHandler(self)
+        self.receiveHandler.start()
+        self.StopEvents = list()
+        self.StopEvents.append(self.StopEvent)
+        self.StopEvents.append(self.receiveHandler.StopEvent)
+        # protocol related variables
+        self.pingTime = datetime.datetime.now()  # assigning a value purely for IDE type recognition
+
+    def recv(self, packet):
+        # type: (Packet) -> None
+        # the difference between recv and handle_packet is that recv is blocking further reads
+        # handle_packet runs in its own thread and can take all the time it wants to process
+        if packet.source == LOCAL_ADDRESS:
+            print 'Ignoring packet from self'
+            packet.print_raw()
+        elif packet.destination in [LOCAL_ADDRESS, 255]:
+            print 'Received', str(packet)
+            self.ReceiveBuffer.append(packet)
+        else:
+            print 'Ignoring packet that isn\'t for me'
+            packet.print_raw()
+
+    def send(self, packet):
+        # type: (Packet) -> None
+        print 'sending:'
+        packet.print_raw()
+
+    def send_ping(self, dst):
+        # type: (int) -> None
+        self.pingTime = datetime.datetime.now()
+        self.send(IcmpPingPacket.craft_packet(dst=dst, opt=PROTO_ICMP, ttl=15))
+
+    def run(self):
+        # i know this breaks the inheritance override principle
+        raise Exception('Cannot use packethandler as a thread by itself (its a base class)')
+
+    def handle_packet(self, packet):
+        # type: (Packet) -> None
+        if packet.options & PROTO_ICMP and packet.dataLength == 1 and ord(packet.data[0]) == ICMP_PING:
+            IcmpPingPacket.convert_to_class(packet)
+            self.recv_icmp_ping(packet)
+        elif packet.options & PROTO_ICMP and packet.dataLength == 1 and ord(packet.data[0]) == ICMP_PONG:
+            IcmpPongPacket.convert_to_class(packet)
+            self.recv_icmp_pong(packet)
+
+    def recv_icmp_ping(self, packet):
+        # type: (IcmpPingPacket) -> None
+        print 'ping packet detected'
+        self.send(packet.craft_pong_response())
+
+    def recv_icmp_pong(self, packet):
+        # type: (IcmpPongPacket) -> None
+        print 'pong packet detected'
+        delta = datetime.datetime.now() - self.pingTime
+        print 'roundtrip time %d' % delta.microseconds, delta
+
+
+class SocketPacketHandler(PacketHandler):
+    def __init__(self):
+        super(SocketPacketHandler, self).__init__()
+        self.Sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.Sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        self.Sock.bind(('', 5151))
+        self.PacketParser = PacketParser()
+
+    def run(self):
+        # TODO: split this up so that base actually holds execution and calls override methods?
+        print 'listening on *:5151'
+        while not self.StopEvent.is_set():
+            self.Sock.settimeout(1.0)
+            try:
+                received_data, client_address = self.Sock.recvfrom(1024)
+            except socket.timeout:
+                continue
+            # TODO: handle buffer assembly for multiple clients
+            # print 'repr', repr(received_data), address
+            # TODO: handle packet content parsing (start at SOM, end at EOM, maybe also do a checksum)
+            self.PacketParser.parse_buffer(received_data)
+            for packet in self.PacketParser.Packets:
+                self.recv(packet)
+                self.PacketParser.Packets.remove(packet)
+
+    def handle_packet(self, packet):
+        # type: (Packet) -> None
+        super(SocketPacketHandler, self).handle_packet(packet)
+
+    def send(self, packet):
+        # type: (Packet) -> None
+        super(SocketPacketHandler, self).send(packet)
+        self.Sock.sendto(packet.get_packet_data(), ('255.255.255.255', 5151))
+
+
+class SerialPacketHandler(PacketHandler):
+    def __init__(self, port=None, baud=None):
+        super(SerialPacketHandler, self).__init__()
+        if port is None:
+            port = 'COM3'
+        if baud is None:
+            baud = 2400
+        self.Serial = serial.Serial(port, baud, timeout=1)
+        self.PacketParser = PacketParser()
+
+    def run(self):
+        print 'reading data from serial port ' + self.Serial.port
+        while not self.StopEvent.is_set():
+            received_data = self.Serial.read(100)
+            self.PacketParser.parse_buffer(received_data)
+            for packet in self.PacketParser.Packets:
+                self.recv(packet)
+                self.PacketParser.Packets.remove(packet)
+
+    def handle_packet(self, packet):
+        # type: (Packet) -> None
+        super(SerialPacketHandler, self).handle_packet(packet)
+
+    def send(self, packet):
+        # type: (Packet) -> None
+        super(SerialPacketHandler, self).send(packet)
+        self.Serial.write(chr(POLYNOMIAL)*5 + chr(PREAMBLE)*2 + chr(SOM) + packet.get_packet_data() + chr(EOM) + chr(POSTAMBLE)*4)
+
+
+class PacketParser:
+    """
+    :type packetBuffer: str
+    :type Packets: list(Packet)
+    """
+    splitChars = chr(PREAMBLE) + chr(PREAMBLE) + chr(SOM)
+    endChars = chr(EOM) + chr(POSTAMBLE) + chr(POSTAMBLE)
+
+    def __init__(self):
+        """
+        :rtype: PacketParser
+        """
+        self.packetBuffer = ''
+        self.Packets = list()
+
+    def parse_buffer(self, packetdata):
+        # type: (packetdata) -> str
+        if packetdata == '':
+            return
+
+        self.packetBuffer += packetdata
+        # print repr(packetData)
+        rest = ''
+        for segment in self.packetBuffer.split(PacketParser.splitChars):
+            if segment == '' or segment == len(segment) * chr(POLYNOMIAL):
+                # the segment empty or only POLYNOMIAL, ignore it
+                pass
+            elif segment.find(PacketParser.endChars) != -1:
+                # print len(segment), 'segment', ' '.join([str(ord(x)) for x in list(segment)])
+                s = segment.split(PacketParser.endChars)[0]  # discard everything after
+                # print repr(segment.split(endChars))
+                # print len(s), 's', ' '.join([str(ord(x)) for x in list(s)])
+                packet = Packet(s)
+                self.Packets.append(packet)
+            else:
+                # print len(segment), 'rest segment', ' '.join([str(ord(x)) for x in list(segment)])
+                rest += PacketParser.splitChars + segment
+        # if rest != '':
+        #     print len(rest), 'rest is', ' '.join([str(ord(x)) for x in list(rest)])
+        self.packetBuffer = rest

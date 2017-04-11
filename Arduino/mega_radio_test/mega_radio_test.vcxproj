@@ -80,11 +80,12 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="WshPacket.h" />
+    <ClInclude Include="Protocol.h" />
+    <ClInclude Include="Packet.h" />
     <ClInclude Include="__vm\.mega_radio_test.vsarduino.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="WshPacket.cpp" />
+    <ClCompile Include="Packet.cpp" />
   </ItemGroup>
   <PropertyGroup>
     <DebuggerFlavor>VisualMicroDebugger</DebuggerFlavor>

@@ -1,18 +1,5 @@
-//#include <xstddef>
-#include "WshPacket.h"
-const uint8_t PREAMBLE_BYTE = 0xAA; //170
-const uint8_t SOM_BYTE = 0xC5; //197
-const uint8_t EOM_BYTE = 0x5C; //92
-const uint8_t POSTAMBLE_BYTE = 0x3A; //58
-const uint8_t POLYNOMIAL = 0x8C; //140
-
-const uint8_t PROTO_RAW = 0x0;
-const uint8_t PROTO_ICMP = 0x1;
-const uint8_t PROTO_RES1 = 0x2;
-const uint8_t PROTO_RES2 = 0x4;
-const uint8_t OPT_FORWARD = 0x8;
-const uint8_t ICMP_PING = 0x0;
-const uint8_t ICMP_PONG = 0x1;
+#include "Packet.h"
+#include "Protocol.h"
 
 const uint8_t LOCAL_ADDRESS = 99;
 
@@ -43,7 +30,7 @@ void setup() {
 	Serial3.begin(2400, SERIAL_8N1);
 }
 
-void Serial3SendPacket(const WshPacket& packet);
+void Serial3SendPacket(const Packet& packet);
 
 void loop() {
 
@@ -96,7 +83,7 @@ void loop() {
 
 		//TODO: checksum validation
 
-		WshPacket packet = WshPacket(packetData);
+		Packet packet = Packet(packetData);
 		Serial3SendPacket(packet);
 
 		if (destination == 255 || destination == LOCAL_ADDRESS)
@@ -155,7 +142,7 @@ void ledBlink() {
 	digitalWrite(ledPin, LOW);
 }
 
-void Serial3SendPacket(const WshPacket& packet)
+void Serial3SendPacket(const Packet& packet)
 {
 	uint8_t sendBuffer[17] = { PREAMBLE_BYTE, PREAMBLE_BYTE, PREAMBLE_BYTE, SOM_BYTE, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, EOM_BYTE, POSTAMBLE_BYTE, POSTAMBLE_BYTE };
 	for (int i = 0; i > 10; i++)

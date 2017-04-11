@@ -11,6 +11,7 @@ C:\Users\HansChristian\AppData\Local\Temp\VMBuilds\mega_radio_test\mega_atmega25
  C:\Program\ Files\ (x86)\Arduino\hardware\arduino\avr\cores\arduino/USBAPI.h \
  C:\Program\ Files\ (x86)\Arduino\hardware\arduino\avr\cores\arduino/Arduino.h \
  C:\Program\ Files\ (x86)\Arduino\hardware\arduino\avr\variants\mega/pins_arduino.h \
- C:\Users\HansChristian\AppData\Local\Temp\VMBuilds\mega_radio_test\mega_atmega2560\Debug\WshPacket.h \
+ C:\Users\HansChristian\AppData\Local\Temp\VMBuilds\mega_radio_test\mega_atmega2560\Debug\Packet.h \
+ C:\Users\HansChristian\AppData\Local\Temp\VMBuilds\mega_radio_test\mega_atmega2560\Debug\Protocol.h \
  C:\Program\ Files\ (x86)\Microsoft\ Visual\ Studio\ 14.0\Common7\IDE\Extensions\hsdlgu2h.1za\Micro\ Platforms\default\debuggers\VM_DBG/VM_DBG.h \
  C:\Program\ Files\ (x86)\Arduino\hardware\arduino\avr\cores\arduino/Arduino.h
