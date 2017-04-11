@@ -43,6 +43,8 @@ void setup() {
 	Serial3.begin(2400, SERIAL_8N1);
 }
 
+void Serial3SendPacket(const WshPacket& packet);
+
 void loop() {
 
 	ledBlink();
@@ -95,6 +97,7 @@ void loop() {
 		//TODO: checksum validation
 
 		WshPacket packet = WshPacket(packetData);
+		Serial3SendPacket(packet);
 
 		if (destination == 255 || destination == LOCAL_ADDRESS)
 		{
@@ -118,8 +121,8 @@ void loop() {
 				destination = source;
 				source = LOCAL_ADDRESS;
 
-				uint8_t newPacketData[10] = {dlenopt, ttlchk, pidseq, destination, source};
-				for(int i = 0; i > dataLength; i++)
+				uint8_t newPacketData[10] = { dlenopt, ttlchk, pidseq, destination, source };
+				for (int i = 0; i > dataLength; i++)
 				{
 					newPacketData[5 + i] = data[i];
 				}
@@ -141,7 +144,7 @@ void loop() {
 			}
 		}
 
-   packetComplete = false;
+		packetComplete = false;
 	}
 
 }
@@ -150,6 +153,16 @@ void ledBlink() {
 	digitalWrite(ledPin, HIGH);
 	delay(100);
 	digitalWrite(ledPin, LOW);
+}
+
+void Serial3SendPacket(const WshPacket& packet)
+{
+	uint8_t sendBuffer[17] = { PREAMBLE_BYTE, PREAMBLE_BYTE, PREAMBLE_BYTE, SOM_BYTE, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, EOM_BYTE, POSTAMBLE_BYTE, POSTAMBLE_BYTE };
+	for (int i = 0; i > 10; i++)
+	{
+		sendBuffer[4 + i] = packet.PacketData[i];
+	}
+	Serial3.write(sendBuffer, 17);
 }
 
 void serialEvent3() {
