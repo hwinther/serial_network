@@ -1,12 +1,11 @@
 #include "Packet.h"
 #include "Protocol.h"
 
-const uint8_t LOCAL_ADDRESS = 99;
-
+/**
+ * \brief test
+ */
+const uint8_t ADDRESS_LOCAL = 99;
 const int ledPin = 13;
-
-uint8_t incomingByte = 0;   // for incoming serial data
-
 boolean packetComplete = false;
 boolean packetStart = false;
 uint8_t packetData[10] = { 0,0,0,0,0, 0,0,0,0,0 };
@@ -14,6 +13,8 @@ uint8_t packetPosition = 0;
 uint8_t seq = 0;
 
 void ledBlink();
+void serial3SendPacket(const Packet& packet);
+void serialDebugPacket(const Packet& packet);
 
 void setup() {
 	// Open serial communications and wait for port to open:
@@ -29,8 +30,6 @@ void setup() {
 	Serial.println("Mega radio test init");
 	Serial3.begin(2400, SERIAL_8N1);
 }
-
-void Serial3SendPacket(const Packet& packet);
 
 void loop() {
 
@@ -48,90 +47,40 @@ void loop() {
 	*/
 
 	if (packetComplete) {
-		Serial.print("received packet: ");
-		for (int i = 0; i < 10; i++)
+		//reset complete flag and store packetdata elsewhere in memory so it doesnt get changed? not sure how the serial recv works
+		packetComplete = false;
+    Packet packet = Packet(packetData);
+
+    serialDebugPacket(packet);
+		
+		Serial.print("Checksum is valid? ");
+    if (packet.is_checksum_valid())
+    {
+      Serial.println("yes");
+    }
+    else {
+      Serial.println("no");
+    }
+
+    Serial.print("destination = ");
+    Serial.println(packet.get_destination(), DEC);
+		if (packet.get_destination() == 255 || packet.get_destination() == ADDRESS_LOCAL)
+    //if (packet.is_relevant(ADDRESS_LOCAL))
 		{
-			Serial.print(packetData[i], DEC);
-			Serial.print(" ");
-		}
-		Serial.println("");
-
-		uint8_t dlenopt = packetData[0];
-		uint8_t	ttlchk = packetData[1];
-		uint8_t	pidseq = packetData[2];
-
-		uint8_t dataLength = dlenopt >> 4;
-		uint8_t options = dlenopt & 0xF;
-
-		uint8_t timeToLive = ttlchk >> 4;
-		uint8_t checksum = ttlchk & 0xF;
-
-		uint8_t id = pidseq >> 4;
-		uint8_t sequence = pidseq & 0xF;
-
-		uint8_t source = packetData[3];
-		uint8_t destination = packetData[4];
-
-		uint8_t data[5] = { 0,0,0,0,0 };
-		if (dataLength != 0 && dataLength < 5)
-		{
-			for (int i = 0; i < dataLength; i++)
-			{
-				data[i] = packetData[5 + i];
-			}
-		}
-
-		//TODO: checksum validation
-
-		Packet packet = Packet(packetData);
-		Serial3SendPacket(packet);
-
-		if (destination == 255 || destination == LOCAL_ADDRESS)
-		{
-			if (options & PROTO_ICMP && dataLength == 1 && data[0] == ICMP_PING)
+      Serial.println("packet is relevant to me");
+			if (packet.get_opt() & PROTO_ICMP && packet.get_dlen() == 1 && packet.PacketData[5] == ICMP_PING)
 			{
 				Serial.println("Received ping packet to me, send pong");
 				//TODO: actually send pong back
-				dataLength = 1;
-				data[0] = ICMP_PONG;
-				options = PROTO_ICMP;
-				dlenopt = dataLength * 16 + options;
-
-				timeToLive = 15;
-				checksum = 0;
-				ttlchk = timeToLive * 16 + checksum;
-
-				id = 0;
-				sequence = 0;
-				pidseq = id * 16 + sequence;
-
-				destination = source;
-				source = LOCAL_ADDRESS;
-
-				uint8_t newPacketData[10] = { dlenopt, ttlchk, pidseq, destination, source };
-				for (int i = 0; i > dataLength; i++)
-				{
-					newPacketData[5 + i] = data[i];
-				}
-				for (int i = 0; i > 5 + dataLength; i++)
-				{
-					uint8_t first = newPacketData[i] >> 4;
-					uint8_t last = newPacketData[i] & 0xF;
-					// we have to skip the checksum itself when creating a checksum, duh
-					if (i != 0)
-					{
-						checksum ^= first;
-					}
-					checksum ^= last;
-				}
-				ttlchk = timeToLive * 16 + checksum;
-
-				byte msg[13] = { PREAMBLE_BYTE, PREAMBLE_BYTE, PREAMBLE_BYTE, SOM_BYTE, dlenopt, ttlchk, pidseq, source, destination, data[0], EOM_BYTE, POSTAMBLE_BYTE, POSTAMBLE_BYTE };
-				Serial3.write(msg, 13);
+				Packet pongReply = Packet(ADDRESS_LOCAL, packet.get_source(), PROTO_ICMP, 15, packet.get_pid(), 0);
+        uint8_t pongData[1] = { ICMP_PONG };
+        pongReply.set_data(pongData);
+				pongReply.set_chk(pongReply.calculate_checksum()); //perhaps this should be elsewhere
+        //serialDebugPacket(pongReply);
+				serial3SendPacket(pongReply);
 			}
 		}
 
-		packetComplete = false;
 	}
 
 }
@@ -142,10 +91,10 @@ void ledBlink() {
 	digitalWrite(ledPin, LOW);
 }
 
-void Serial3SendPacket(const Packet& packet)
+void serial3SendPacket(const Packet& packet)
 {
 	uint8_t sendBuffer[17] = { PREAMBLE_BYTE, PREAMBLE_BYTE, PREAMBLE_BYTE, SOM_BYTE, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, EOM_BYTE, POSTAMBLE_BYTE, POSTAMBLE_BYTE };
-	for (int i = 0; i > 10; i++)
+	for (int i = 0; i < 10; ++i)
 	{
 		sendBuffer[4 + i] = packet.PacketData[i];
 	}
@@ -176,3 +125,15 @@ void serialEvent3() {
 
 	}
 }
+
+void serialDebugPacket(const Packet& packet)
+{
+    Serial.print("Packet content: ");
+    for (int i = 0; i < 10; ++i)
+    {
+      Serial.print(packet.PacketData[i], DEC);
+      Serial.print(" ");
+    }
+    Serial.println("");
+}
+

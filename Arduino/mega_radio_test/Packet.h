@@ -1,14 +1,17 @@
 #pragma once
 #include <stdint.h>
+#include "Protocol.h"
+
 class Packet
 {
 
 public:
 	Packet();
 	Packet(uint8_t *packetData);
+	Packet(uint8_t source, uint8_t destination, uint8_t opt = 0, uint8_t ttl = 0, uint8_t pid = 0, uint8_t seq = 0);
 	~Packet();
 
-	uint8_t PacketData[10];
+	uint8_t PacketData[10]= {0,0,0,0,0, 0,0,0,0,0};
 
 	uint8_t get_dlen();
 	uint8_t get_opt();
@@ -28,5 +31,11 @@ public:
 	void set_source(uint8_t value);
 	void set_destination(uint8_t value);
 
-	void Packet::set_data(uint8_t *value);
+	void set_data(uint8_t *value);
+
+	uint8_t calculate_checksum();
+
+	bool is_broadcast();
+	bool is_relevant(uint8_t address_local);
+	bool is_checksum_valid();
 };

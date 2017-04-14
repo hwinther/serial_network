@@ -1,8 +1,9 @@
 from Protocol import *
 import socket
+import logging
 
 LOCAL_ADDRESS = int(socket.gethostbyname(socket.gethostname()).split('.')[-1])
-print 'LOCAL_ADDRESS is %d' % LOCAL_ADDRESS
+logging.info('LOCAL_ADDRESS is %d' % LOCAL_ADDRESS)
 
 # region Packet classes
 
@@ -45,13 +46,14 @@ class Packet(object):
     def calculate_checksum(self):
         chk = 0
         i = 0
-        for b in self.all_bytes():
-            first = b >> 4
-            last = b & 0xF
+        bytes = self.all_bytes()
+        for b in bytes:
+            hnibble = b >> 4
+            lnibble = b & 0xF
             # we have to skip the checksum itself when creating a checksum, duh
-            if i != 0:
-                chk ^= first
-            chk ^= last
+            chk ^= hnibble
+            if i != 1:
+                chk ^= lnibble
             i += 1
         return chk
 
@@ -118,22 +120,34 @@ class Packet(object):
         return self.id * 16 + self.sequence
 
     def get_packet_data(self):
+        self.checksum = self.calculate_checksum()
         return chr(self.calculate_dlenopt()) + chr(self.calculate_ttlchk()) + chr(self.calculate_pidseq()) + \
                chr(self.source) + chr(self.destination) + self.data
 
-    def print_raw(self):
+    def print_raw(self, loglevel=None):
         dlenopt = self.calculate_dlenopt()
         ttlchk = self.calculate_ttlchk()
         pidseq = self.calculate_pidseq()
-        print 'dlenopt\t%s\t0x%x\t%d' % (bin(dlenopt), dlenopt, dlenopt)
-        print 'ttlchk\t%s\t0x%x\t%d' % (bin(ttlchk), ttlchk, ttlchk)
-        print 'pidseq\t%s\t0x%x\t%d' % (bin(pidseq), pidseq, pidseq)
-        print 'source\t%s\t0x%x\t%d' % (bin(self.source), self.source, self.source)
-        print 'dest\t%s\t0x%x\t%d' % (bin(self.destination), self.destination, self.destination)
-        i = 0
-        for c in self.data:
-            print 'data%d\t%s' % (i, bin(ord(c)))
-            i += 1
+        if not loglevel:
+            print 'dlenopt\t%s\t0x%x\t%d' % (bin(dlenopt), dlenopt, dlenopt)
+            print 'ttlchk\t%s\t0x%x\t%d' % (bin(ttlchk), ttlchk, ttlchk)
+            print 'pidseq\t%s\t0x%x\t%d' % (bin(pidseq), pidseq, pidseq)
+            print 'source\t%s\t0x%x\t%d' % (bin(self.source), self.source, self.source)
+            print 'dest\t%s\t0x%x\t%d' % (bin(self.destination), self.destination, self.destination)
+            i = 0
+            for c in self.data:
+                print 'data%d\t%s' % (i, bin(ord(c)))
+                i += 1
+        else:
+            logging.debug('dlenopt\t%s\t0x%x\t%d' % (bin(dlenopt), dlenopt, dlenopt))
+            logging.debug('ttlchk\t%s\t0x%x\t%d' % (bin(ttlchk), ttlchk, ttlchk))
+            logging.debug('pidseq\t%s\t0x%x\t%d' % (bin(pidseq), pidseq, pidseq))
+            logging.debug('source\t%s\t0x%x\t%d' % (bin(self.source), self.source, self.source))
+            logging.debug('dest\t%s\t0x%x\t%d' % (bin(self.destination), self.destination, self.destination))
+            i = 0
+            for c in self.data:
+                logging.debug('data%d\t%s' % (i, bin(ord(c))))
+                i += 1
 
     def __eq__(self, other):
         """Override the default Equals behavior"""

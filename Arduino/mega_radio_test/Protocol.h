@@ -11,6 +11,16 @@ const uint8_t PROTO_RAW = 0x0;
 const uint8_t PROTO_ICMP = 0x1;
 const uint8_t PROTO_RES1 = 0x2;
 const uint8_t PROTO_RES2 = 0x4;
+
 const uint8_t OPT_FORWARD = 0x8;
+
 const uint8_t ICMP_PING = 0x0;
 const uint8_t ICMP_PONG = 0x1;
+
+const uint8_t ADDRESS_NETWORKIDENTIFIER = 0;
+const uint8_t ADDRESS_BROADCAST = 255;
+
+//enum Address {
+//	IDENTIFIER = 0,
+//	BROADCAST = 255
+//};

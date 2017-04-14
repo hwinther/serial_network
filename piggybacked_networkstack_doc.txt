@@ -27,8 +27,8 @@ h0 data length | options
 0011	=3 data bytes
 0100	=4 data bytes
 0101	=5 data bytes
-0110	6 everything after this is basically a waste of space right now, but it might be useful later
-0111	7
+0110	6 *everything after this is basically a waste of space right now, but it might be useful later
+0111	7 *
 1000	8
 1001	9
 1010	10
@@ -37,35 +37,38 @@ h0 data length | options
 1101	13
 1110	14
 1111	15
-	0000 = raw (protocol)
-	0001 = icmp
-	0010 = (reserved)
-	0100 = (reserved)
-	1000 = forwarding desired (0 = no forwarding)
+    0000 = raw (protocol)
+    0001 = icmp
+    0010 = (reserved)
+    0100 = (reserved)
+    1000 = forwarding desired (0 = no forwarding)
+
+000 00000
+dlen opt
 
 
 h1 time to live | checksum
 ========
-0	ttl0
-1	ttl1
-2	ttl2
-4	ttl4	= 128 possible values
-8	chk0
-16	chk1
-32	chk2
-128	chk4	= 128 possible values
+0	chk0
+1	chk1
+2	chk2
+4	chk4	= 128 possible values
+8	ttl0
+16	ttl1
+32	ttl2
+128	ttl4	= 128 possible values
 
 
 h2 packet identification | sequence number
 ========
-0	pid0
-1	pid1
-2	pid2
-4	pid4	= 128 possible values
-8	seq0
-16	seq1
-32	seq2
-128	seq4	= 128 possible values
+0	seq0
+1	seq1
+2	seq2
+4	seq4	= 128 possible values
+8	pid0
+16	pid1
+32	pid2
+128	pid4	= 128 possible values
 
 
 a3 && a4

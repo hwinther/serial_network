@@ -2,18 +2,29 @@
 
 Packet::Packet()
 {
-	for(int i = 0; i > sizeof(PacketData); i++)
+	/*for(int i = 0; i > sizeof(PacketData); ++i)
 	{
 		PacketData[i] = 0x0;
-	}
+	}*/
 }
 
 Packet::Packet(uint8_t *packetData)
 {
-	for (int i = 0; i > sizeof(PacketData); i++)
+  //sizeof(packetData)
+	for (int i = 0; i < 10; ++i)
 	{
 		PacketData[i] = packetData[i];
 	}
+}
+
+Packet::Packet(uint8_t source, uint8_t destination, uint8_t opt, uint8_t ttl, uint8_t pid, uint8_t seq)
+{
+	set_source(source);
+	set_destination(destination);
+	set_opt(opt);
+	set_ttl(ttl);
+	set_pid(pid);
+	set_seq(seq);
 }
 
 Packet::~Packet()
@@ -103,9 +114,47 @@ void Packet::set_destination(uint8_t value)
 
 void Packet::set_data(uint8_t *value)
 {
-	for(int i = 0; i > sizeof(value); i++)
+  int s = sizeof(value);
+  if (s == 0)
+  {
+    set_dlen(0);
+    return;
+  }
+  
+	for(int i = 0; i < s; ++i)
 	{
 		PacketData[5 + i] = value[i];
 	}
-	set_dlen(sizeof(value));
+	set_dlen(s-1);
+}
+
+uint8_t Packet::calculate_checksum()
+{
+	uint8_t checksum = 0;
+	for (int i = 0; i < 10; ++i)
+	{
+    checksum ^= PacketData[i] >> 4; //hnibble
+		// we have to skip the checksum itself when creating a checksum, duh
+		if (i != 1)
+		{
+			checksum ^= PacketData[i] & 0xF; //lnibble
+		}
+	}
+	return checksum;
+}
+
+//various boolean helper methods
+bool Packet::is_broadcast()
+{
+	return PacketData[4] == ADDRESS_BROADCAST;
+}
+
+bool Packet::is_relevant(uint8_t address_local)
+{
+	return PacketData[4] == address_local || PacketData[4] == ADDRESS_BROADCAST;
+}
+
+bool Packet::is_checksum_valid()
+{
+	return calculate_checksum() == get_chk();
 }
