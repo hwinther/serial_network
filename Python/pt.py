@@ -228,6 +228,10 @@ class ReceiveHandler(Thread):
     def __init__(self, packet_handler):
         # super(Thread, self).__init__()
         # TODO: what is the difference?
+        """
+
+        :type packet_handler: PacketHandler
+        """
         Thread.__init__(self)
         self.StopEvent = Event()
         self.packetHandler = packet_handler

@@ -3,14 +3,19 @@ import datetime
 import socket
 import serial
 from Protocol import *
-from Packet import Packet, IcmpPingPacket, IcmpPongPacket, LOCAL_ADDRESS
+from Packet import Packet, IcmpPingPacket, IcmpPongPacket, ADDRESS_LOCAL
 import logging
+import time
 
 
 class ReceiveHandler(Thread):
     def __init__(self, packet_handler):
         # super(Thread, self).__init__()
         # TODO: what is the difference?
+        """
+
+        :type packet_handler: PacketHandler
+        """
         Thread.__init__(self)
         self.StopEvent = Event()
         self.packetHandler = packet_handler
@@ -21,6 +26,8 @@ class ReceiveHandler(Thread):
                 self.packetHandler.handle_packet(packet)
                 # TODO: assuming we want to remove it after for now
                 self.packetHandler.ReceiveBuffer.remove(packet)
+
+            time.sleep(0.01)  # to reduce cpu usage
 
 
 class PacketHandler(Thread):
@@ -40,10 +47,10 @@ class PacketHandler(Thread):
         # type: (Packet) -> None
         # the difference between recv and handle_packet is that recv is blocking further reads
         # handle_packet runs in its own thread and can take all the time it wants to process
-        if packet.source == LOCAL_ADDRESS:
+        if packet.source == ADDRESS_LOCAL:
             logging.debug('Ignoring packet from self')
             packet.print_raw(logging.DEBUG)
-        elif packet.destination in [LOCAL_ADDRESS, 255]:
+        elif packet.destination in [ADDRESS_LOCAL, ADDRESS_BROADCAST]:
             logging.debug('Received: ' + str(packet))
             self.ReceiveBuffer.append(packet)
         else:
@@ -66,6 +73,10 @@ class PacketHandler(Thread):
 
     def handle_packet(self, packet):
         # type: (Packet) -> None
+        """
+Override this to implement custom packet handling
+        :param packet: Packet
+        """
         if packet.options & PROTO_ICMP and packet.dataLength == 1 and ord(packet.data[0]) == ICMP_PING:
             IcmpPingPacket.convert_to_class(packet)
             self.recv_icmp_ping(packet)
@@ -84,6 +95,10 @@ class PacketHandler(Thread):
         delta = datetime.datetime.now() - self.pingTime[packet.id]
         self.pingTime[packet.id] = None
         print('pong: roundtrip time for %d was %d' % (packet.id, delta.microseconds), delta)
+
+    def stop(self):
+        for event in self.StopEvents:
+            event.set()
 
 
 class SocketPacketHandler(PacketHandler):
@@ -104,7 +119,7 @@ class SocketPacketHandler(PacketHandler):
             except socket.timeout:
                 continue
             # TODO: handle buffer assembly for multiple clients
-            # logging.debug('repr: ' + repr(received_data) + ' ' + str(address))
+            logging.debug('repr: ' + repr(received_data) + ' ' + str(client_address))
             # TODO: handle packet content parsing (start at SOM, end at EOM, maybe also do a checksum)
             self.PacketParser.parse_buffer(received_data)
             for packet in self.PacketParser.Packets:
@@ -117,8 +132,9 @@ class SocketPacketHandler(PacketHandler):
 
     def send(self, packet):
         # type: (Packet) -> None
+        packet_data = packet.get_packet_data()  # to get the checksum corrected before printing it out in supers debug
         super(SocketPacketHandler, self).send(packet)
-        self.Sock.sendto(packet.get_packet_data(), ('255.255.255.255', 5151))
+        self.Sock.sendto(chr(PREAMBLE)*2 + chr(SOM) + packet_data + chr(EOM) + chr(POSTAMBLE)*4, ('192.168.1.255', 5151))
 
 
 class SerialPacketHandler(PacketHandler):
@@ -181,8 +197,8 @@ class PacketParser:
             elif segment.find(PacketParser.endChars) != -1:
                 # print len(segment), 'segment', ' '.join([str(ord(x)) for x in list(segment)])
                 s = segment.split(PacketParser.endChars)[0]  # discard everything after
-                # print repr(segment.split(endChars))
-                # print len(s), 's', ' '.join([str(ord(x)) for x in list(s)])
+                # print repr(segment.split(PacketParser.endChars))
+                # print 's detail', len(s), ' '.join([str(ord(x)) for x in list(s)])
                 packet = Packet(s)
                 self.Packets.append(packet)
             else:

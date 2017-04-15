@@ -2,8 +2,10 @@ from Protocol import *
 import socket
 import logging
 
-LOCAL_ADDRESS = int(socket.gethostbyname(socket.gethostname()).split('.')[-1])
-logging.info('LOCAL_ADDRESS is %d' % LOCAL_ADDRESS)
+# TODO: this cant happen here if we want it logged
+ADDRESS_LOCAL = int(socket.gethostbyname(socket.gethostname()).split('.')[-1])
+# logging.info('ADDRESS_LOCAL is %d' % ADDRESS_LOCAL)
+print('ADDRESS_LOCAL is %d' % ADDRESS_LOCAL)
 
 # region Packet classes
 
@@ -12,24 +14,30 @@ class Packet(object):
     def __init__(self, data=None):
         # for raw creation
         if not data:
+            self.dataLength = 0
+            self.options = 0
+            self.timeToLive = 0
             self.checksum = 0
-            self.rawData = ''
+            self.id = 0
+            self.sequence = 0
+            self.source = 0
+            self.destination = 0
+            self.data = ''
+            self.rawData = ''  # TODO: rawdata should probably not be set, instead call the method that gets all bytes?
             return
 
-        # this does not belong here
         self.rawData = data
-
-        som_pos = data.find(chr(SOM))
-        data = data[som_pos + 1:som_pos + 9]
-        # end this nonsense <:
+        # TODO: proper handling of datalength?
 
         dlenopt = ord(data[0])
         ttlchk = ord(data[1])
         pidseq = ord(data[2])
 
-        self.dataLength = dlenopt >> 4
-        self.options = dlenopt & 0xF
+        # the split is now 3 / 5
+        self.dataLength = dlenopt >> 5
+        self.options = dlenopt & 0x1F
 
+        # the others are still 4 / 4
         self.timeToLive = ttlchk >> 4
         self.checksum = ttlchk & 0xF
 
@@ -48,6 +56,7 @@ class Packet(object):
         i = 0
         bytes = self.all_bytes()
         for b in bytes:
+            # this totally ignores dlen/opt structure, but afaik thats ok
             hnibble = b >> 4
             lnibble = b & 0xF
             # we have to skip the checksum itself when creating a checksum, duh
@@ -75,16 +84,19 @@ class Packet(object):
 
     def __str__(self):
         option_list = list()
-        if not self.options & 1:
+        if not self.options & PROTO_ICMP:  # how else do you check against 0?
             option_list.append('proto:raw')
-        if self.options & 1:
+        if self.options & PROTO_ICMP:
             option_list.append('proto:icmp')
-        if self.options & 2:
-            option_list.append('proto:res1')
-        if self.options & 4:
-            option_list.append('proto:res2')
-        if self.options & 8:
-            option_list.append('opt:forward')
+        if self.options & OPT_SYN:
+            option_list.append('opt:syn')
+        if self.options & OPT_ACK:
+            option_list.append('opt:ack')
+        if self.options & OPT_RST:
+            option_list.append('opt:rst')
+        if self.options & OPT_FIN:
+            option_list.append('opt:fin')
+        #    option_list.append('opt:forward')
         return 'datalength: %d\noptions: %s (%s)\nttl: %d\nchecksum: %d\nid: %d\nsequence: %d\nsource: %s\ndestination: %s\ndata: %s' \
                % (self.dataLength, self.options, ', '.join(option_list), self.timeToLive, self.checksum, self.id,
                   self.sequence,
@@ -95,7 +107,7 @@ class Packet(object):
         obj.__class__ = cls
 
     @staticmethod
-    def craft_packet(dst, src=LOCAL_ADDRESS, opt=0, ttl=0, pid=0, seq=0, data=''):
+    def craft_packet(dst, src=ADDRESS_LOCAL, opt=0, ttl=0, pid=0, seq=0, data=''):
         # type: (int, int, int, int, int, int, str) -> Packet
         packet = Packet()
         packet.source = src
@@ -110,10 +122,9 @@ class Packet(object):
         return packet
 
     def calculate_dlenopt(self):
-        return self.dataLength * 16 + self.options
+        return self.dataLength * 32 + self.options
 
     def calculate_ttlchk(self):
-        # print 'calc_ttlchk: ttl=%d chk=%d res=%d' % (self.timeToLive, self.checksum, self.timeToLive * 16 + self.checksum)
         return self.timeToLive * 16 + self.checksum
 
     def calculate_pidseq(self):
@@ -175,7 +186,7 @@ class IcmpPingPacket(Packet):
         super(IcmpPingPacket, self).__init__(data)
 
     @staticmethod
-    def craft_packet(dst, src=LOCAL_ADDRESS, opt=0, ttl=0, pid=0, seq=0, data='', packet=None):
+    def craft_packet(dst, src=ADDRESS_LOCAL, opt=0, ttl=0, pid=0, seq=0, data='', packet=None):
         opt |= PROTO_ICMP  # add icmp protocol in case its missing
         # return packet with ICMP_PING data, that's it
         packet = Packet.craft_packet(dst=dst, src=src, opt=opt, ttl=ttl, pid=pid, seq=seq, data=chr(ICMP_PING))
@@ -183,7 +194,7 @@ class IcmpPingPacket(Packet):
         return packet
 
     def craft_pong_response(self):
-        return IcmpPongPacket.craft_packet(src=LOCAL_ADDRESS, dst=self.source,
+        return IcmpPongPacket.craft_packet(src=ADDRESS_LOCAL, dst=self.source,
                                            opt=self.options | PROTO_ICMP, ttl=15, pid=self.id,
                                            seq=self.sequence + 1, data=chr(ICMP_PING) + self.data[1:])
 
@@ -193,7 +204,7 @@ class IcmpPongPacket(Packet):
         super(IcmpPongPacket, self).__init__(data)
 
     @staticmethod
-    def craft_packet(dst, src=LOCAL_ADDRESS, opt=0, ttl=0, pid=0, seq=0, data=''):
+    def craft_packet(dst, src=ADDRESS_LOCAL, opt=0, ttl=0, pid=0, seq=0, data=''):
         opt |= PROTO_ICMP  # add icmp protocol in case its missing
         # return packet with ICMP_PING data, that's it
         packet = Packet.craft_packet(dst=dst, src=src, opt=opt, ttl=ttl, pid=pid, seq=seq, data=chr(ICMP_PONG))
