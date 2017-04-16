@@ -71,7 +71,7 @@ class ReliablePacketHandler(SerialPacketHandler):
                 if packet.source == p.destination and packet.id == p.id and packet.sequence == p.sequence:
                     # this should be the right packet
                     # TODO: compare them via class method?
-                    logging.info('ACK discharged packet from buffer, transmissions: %d' % len(p.sendTimes))
+                    logging.debug('ACK discharged packet from buffer, transmissions: %d' % len(p.sendTimes))
                     self.sendBuffer.remove(p)
                     # TODO: recipience transition/event?
 
@@ -136,8 +136,8 @@ class ReliablePacketHandler(SerialPacketHandler):
 
     def handle_queue(self):
         # here we will go over the queue and resend packets
-        # if self.state == STATE_IDLE:
-        #     return
+        if self.state == STATE_IDLE:
+            return
 
         for p in self.sendBuffer:
             if (datetime.datetime.now() - p.sendTimes[-1]).total_seconds() > RETRANSMISSION_WAIT:
@@ -148,7 +148,7 @@ class ReliablePacketHandler(SerialPacketHandler):
                     continue
 
                 # resend the packet
-                logging.info('retransmission of packet')
+                logging.debug('retransmission of packet')
                 super(ReliablePacketHandler, self).send(p)
                 p.sendTimes.append(datetime.datetime.now())
 
@@ -156,8 +156,6 @@ class ReliablePacketHandler(SerialPacketHandler):
 class Client:
     def __init__(self, destination, port=None):
         self.packetHandler = ReliablePacketHandler(port)
-        # self.StopEvents = list()
-        # self.StopEvents.extend(self.packetHandler.StopEvents)
         self.destination = destination
 
     def run(self):
@@ -187,8 +185,6 @@ class Client:
     def stop(self):
         print('exiting')
         self.packetHandler.stop()
-        # for stopEvent in self.StopEvents:
-        #     stopEvent.set()
 
 
 if __name__ == '__main__':

@@ -85,7 +85,7 @@ class Packet(object):
 
     def is_valid_checksum(self):
         chk = self.calculate_checksum()
-        print 'self.checksum = %d chk = %d' % (self.checksum, chk)
+        logging.debug('self.checksum = %d chk = %d' % (self.checksum, chk))
         return self.checksum == chk
 
     def __str__(self):
