@@ -15,6 +15,7 @@ class Packet(object):
         # for raw creation
         if not data:
             self.dataLength = 0
+            self.protocol = 0
             self.options = 0
             self.timeToLive = 0
             self.checksum = 0
@@ -33,9 +34,14 @@ class Packet(object):
         ttlchk = ord(data[1])
         pidseq = ord(data[2])
 
-        # the split is now 3 / 5
+        # rev 1.1 - the split is now 3 / 5
+        # rev 1.2 - dlen proto opt
+        #           000  000   00
+        # split is now 3 / 3 / 2
         self.dataLength = dlenopt >> 5
-        self.options = dlenopt & 0x1F
+        # self.options = dlenopt & 0x1F
+        self.protocol = (dlenopt & 0x1C) >> 2
+        self.options = dlenopt & 0x3
 
         # the others are still 4 / 4
         self.timeToLive = ttlchk >> 4
@@ -83,35 +89,46 @@ class Packet(object):
         return self.checksum == chk
 
     def __str__(self):
+        proto = ''
+        if self.protocol == PROTO_RAW:
+            proto = 'proto:raw'
+        elif self.protocol & PROTO_ICMP:
+            proto = 'proto:icmp'
+        elif self.protocol & PROTO_ACKREQ:
+            proto = 'proto:acqreq'
+        elif self.protocol & PROTO_SYN:
+            proto = 'proto:syn'
+        elif self.protocol & PROTO_SYNACK:
+            proto = 'proto:synack'
+        elif self.protocol & PROTO_FIN:
+            proto = 'proto:fin'
+        elif self.protocol & PROTO_FINACK:
+            proto = 'proto:finack'
+        elif self.protocol & PROTO_RES1:
+            proto = 'proto:res1'
+
         option_list = list()
-        if not self.options & PROTO_ICMP:  # how else do you check against 0?
-            option_list.append('proto:raw')
-        if self.options & PROTO_ICMP:
-            option_list.append('proto:icmp')
-        if self.options & OPT_SYN:
-            option_list.append('opt:syn')
         if self.options & OPT_ACK:
             option_list.append('opt:ack')
         if self.options & OPT_RST:
             option_list.append('opt:rst')
-        if self.options & OPT_FIN:
-            option_list.append('opt:fin')
-        #    option_list.append('opt:forward')
-        return 'datalength: %d\noptions: %s (%s)\nttl: %d\nchecksum: %d\nid: %d\nsequence: %d\nsource: %s\ndestination: %s\ndata: %s' \
-               % (self.dataLength, self.options, ', '.join(option_list), self.timeToLive, self.checksum, self.id,
-                  self.sequence,
-                  self.source, self.destination, repr(self.data))
+
+        return 'datalength: %d\nprotocol: %d (%s)\noptions: %d (%s)\nttl: %d\nchecksum: %d\nid: %d\nsequence: %d\n' \
+               'source: %s\ndestination: %s\ndata: %s' \
+               % (self.dataLength, self.protocol, proto, self.options, ', '.join(option_list), self.timeToLive,
+                  self.checksum, self.id, self.sequence, self.source, self.destination, repr(self.data))
 
     @classmethod
     def convert_to_class(cls, obj):
         obj.__class__ = cls
 
     @staticmethod
-    def craft_packet(dst, src=ADDRESS_LOCAL, opt=0, ttl=0, pid=0, seq=0, data=''):
-        # type: (int, int, int, int, int, int, str) -> Packet
+    def craft_packet(dst, src=ADDRESS_LOCAL, proto=0, opt=0, ttl=0, pid=0, seq=0, data=''):
+        # type: (int, int, int, int, int, int, int, str) -> Packet
         packet = Packet()
         packet.source = src
         packet.destination = dst
+        packet.protocol = proto
         packet.options = opt
         packet.timeToLive = ttl
         packet.id = pid
@@ -122,7 +139,8 @@ class Packet(object):
         return packet
 
     def calculate_dlenopt(self):
-        return self.dataLength * 32 + self.options
+        # return self.dataLength * 32 + self.options  # rev 1.1
+        return self.dataLength * 32 + (self.protocol << 2) + self.options  # rev 1.2
 
     def calculate_ttlchk(self):
         return self.timeToLive * 16 + self.checksum
@@ -186,16 +204,17 @@ class IcmpPingPacket(Packet):
         super(IcmpPingPacket, self).__init__(data)
 
     @staticmethod
-    def craft_packet(dst, src=ADDRESS_LOCAL, opt=0, ttl=0, pid=0, seq=0, data='', packet=None):
+    def craft_packet(dst, src=ADDRESS_LOCAL, proto=0, opt=0, ttl=0, pid=0, seq=0, data='', packet=None):
         opt |= PROTO_ICMP  # add icmp protocol in case its missing
         # return packet with ICMP_PING data, that's it
-        packet = Packet.craft_packet(dst=dst, src=src, opt=opt, ttl=ttl, pid=pid, seq=seq, data=chr(ICMP_PING))
+        packet = Packet.craft_packet(dst=dst, src=src, proto=proto, opt=opt, ttl=ttl, pid=pid, seq=seq,
+                                     data=chr(ICMP_PING))
         IcmpPingPacket.convert_to_class(packet)
         return packet
 
     def craft_pong_response(self):
         return IcmpPongPacket.craft_packet(src=ADDRESS_LOCAL, dst=self.source,
-                                           opt=self.options | PROTO_ICMP, ttl=15, pid=self.id,
+                                           proto=PROTO_ICMP, opt=0, ttl=15, pid=self.id,
                                            seq=self.sequence + 1, data=chr(ICMP_PING) + self.data[1:])
 
 
@@ -204,10 +223,11 @@ class IcmpPongPacket(Packet):
         super(IcmpPongPacket, self).__init__(data)
 
     @staticmethod
-    def craft_packet(dst, src=ADDRESS_LOCAL, opt=0, ttl=0, pid=0, seq=0, data=''):
+    def craft_packet(dst, src=ADDRESS_LOCAL, proto=0, opt=0, ttl=0, pid=0, seq=0, data=''):
         opt |= PROTO_ICMP  # add icmp protocol in case its missing
         # return packet with ICMP_PING data, that's it
-        packet = Packet.craft_packet(dst=dst, src=src, opt=opt, ttl=ttl, pid=pid, seq=seq, data=chr(ICMP_PONG))
+        packet = Packet.craft_packet(dst=dst, src=src, proto=proto, opt=opt, ttl=ttl, pid=pid, seq=seq,
+                                     data=chr(ICMP_PONG))
         IcmpPongPacket.convert_to_class(packet)
         return packet
 

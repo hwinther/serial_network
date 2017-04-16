@@ -65,7 +65,7 @@ class PacketHandler(Thread):
     def send_ping(self, dst, pid=0):
         # type: (int) -> None
         self.pingTime[pid] = datetime.datetime.now()
-        self.send(IcmpPingPacket.craft_packet(dst=dst, opt=PROTO_ICMP, ttl=15, pid=pid))
+        self.send(IcmpPingPacket.craft_packet(dst=dst, proto=PROTO_ICMP, ttl=15, pid=pid))
 
     def run(self):
         # i know this breaks the inheritance override principle
@@ -77,10 +77,10 @@ class PacketHandler(Thread):
 Override this to implement custom packet handling
         :param packet: Packet
         """
-        if packet.options & PROTO_ICMP and packet.dataLength == 1 and ord(packet.data[0]) == ICMP_PING:
+        if packet.protocol == PROTO_ICMP and packet.dataLength == 1 and ord(packet.data[0]) == ICMP_PING:
             IcmpPingPacket.convert_to_class(packet)
             self.recv_icmp_ping(packet)
-        elif packet.options & PROTO_ICMP and packet.dataLength == 1 and ord(packet.data[0]) == ICMP_PONG:
+        elif packet.protocol == PROTO_ICMP and packet.dataLength == 1 and ord(packet.data[0]) == ICMP_PONG:
             IcmpPongPacket.convert_to_class(packet)
             self.recv_icmp_pong(packet)
 

@@ -43,8 +43,13 @@ h0 data length | options
     0100 = (reserved)
     1000 = forwarding desired (0 = no forwarding)
 
+rev1.1
 000 00000
 dlen opt
+
+rev1.2
+000  000   00
+dlen proto opt
 
 
 h1 time to live | checksum

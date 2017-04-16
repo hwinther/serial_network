@@ -51,7 +51,10 @@ class ReliablePacketHandler(SerialPacketHandler):
     def handle_packet(self, packet):
         super(ReliablePacketHandler, self).handle_packet(packet)
 
-        if packet.options == OPT_ACK:
+        if packet.protocol != PROTO_ACKREQ:
+            return
+
+        if packet.options & OPT_ACK:
             # try to find a packet in the buffer that this belongs to
             for p in self.buffer:
                 if packet.source == p.destination and packet.id == p.id and packet.sequence == p.sequence:
@@ -66,17 +69,16 @@ class ReliablePacketHandler(SerialPacketHandler):
 
             return
 
-        if packet.options == 0:
-            # send ACK
-            ack = Packet()
-            ack.options = OPT_ACK
-            ack.source = ADDRESS_LOCAL
-            ack.destination = packet.source
-            ack.id = packet.id
-            ack.sequence = packet.sequence
-            super(ReliablePacketHandler, self).send(ack)
-            self.inputBuffer.append(packet)
-            return
+        # send ACK
+        ack = Packet()
+        ack.protocol = PROTO_ACKREQ
+        ack.options = OPT_ACK
+        ack.source = ADDRESS_LOCAL
+        ack.destination = packet.source
+        ack.id = packet.id
+        ack.sequence = packet.sequence
+        super(ReliablePacketHandler, self).send(ack)
+        self.inputBuffer.append(packet)
 
     def send(self, packet):
         # this will cause the packet to be sent on the wire
@@ -119,6 +121,7 @@ class Client:
     def run(self):
         self.packetHandler.start()
         time.sleep(0.2)
+        pid = 0
         try:
             print('reliable comm with %d started' % self.destination)
             while True:
@@ -133,7 +136,13 @@ class Client:
                 packet.source = ADDRESS_LOCAL
                 packet.dataLength = len(i)
                 packet.data = i
+                packet.protocol = PROTO_ACKREQ  # specifies that we require an ack to be sent back
+                packet.options = OPT_NONE
                 self.packetHandler.send(packet)
+                pid += 1
+                if pid > 15:
+                    pid = 0
+                    # reset
         finally:
             self.stop()
 
