@@ -47,7 +47,10 @@ class PacketHandler(Thread):
         # type: (Packet) -> None
         # the difference between recv and handle_packet is that recv is blocking further reads
         # handle_packet runs in its own thread and can take all the time it wants to process
-        if packet.source == ADDRESS_LOCAL:
+        if packet.is_valid_checksum() == False:
+            logging.warn('Ignoring packet with invalid checksum')
+            packet.print_raw(logging.DEBUG)
+        elif packet.source == ADDRESS_LOCAL:
             logging.debug('Ignoring packet from self')
             packet.print_raw(logging.DEBUG)
         elif packet.destination in [ADDRESS_LOCAL, ADDRESS_BROADCAST]:

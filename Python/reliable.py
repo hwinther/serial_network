@@ -7,8 +7,16 @@ import logging
 import datetime
 import sys
 
+# state values
 STATE_IDLE = 0
-STATE_QUEUE = 0
+STATE_QUEUE = 1
+
+# seconds to wait before sending packet again
+RETRANSMISSION_WAIT = 2
+# maximum amount of received packets to buffer - this is done to avoid exposing retransmitted packets
+INPUTCACHE_LENGTH = 10
+# max amount of retransmissions - after this we raise an exception
+RETRANSMISSION_MAX = 10
 
 
 class RetransmissionThread(Thread):
@@ -41,12 +49,14 @@ class ReliablePacketHandler(SerialPacketHandler):
     def __init__(self, port=None):
         super(ReliablePacketHandler, self).__init__(port=port)
 
-        self.buffer = list()
+        self.sendBuffer = list()
         self.state = STATE_IDLE
-        self.inputBuffer = list()
+        self.recvBuffer = list()
+        self.recvCache = list()
         self.retransmissionThread = RetransmissionThread(self)
         self.retransmissionThread.start()
         self.StopEvents.append(self.retransmissionThread.StopEvent)
+        self.sequence = 0
 
     def handle_packet(self, packet):
         super(ReliablePacketHandler, self).handle_packet(packet)
@@ -54,16 +64,18 @@ class ReliablePacketHandler(SerialPacketHandler):
         if packet.protocol != PROTO_ACKREQ:
             return
 
+        # is this an ACK for a packet we sent?
         if packet.options & OPT_ACK:
             # try to find a packet in the buffer that this belongs to
-            for p in self.buffer:
+            for p in self.sendBuffer:
                 if packet.source == p.destination and packet.id == p.id and packet.sequence == p.sequence:
                     # this should be the right packet
-                    logging.debug('ACK discharged packet from buffer, transmissions: %d' % len(p.sendTimes))
-                    self.buffer.remove(p)
-                    # recipience event call?
+                    # TODO: compare them via class method?
+                    logging.info('ACK discharged packet from buffer, transmissions: %d' % len(p.sendTimes))
+                    self.sendBuffer.remove(p)
+                    # TODO: recipience transition/event?
 
-            if len(self.buffer) == 0 and self.state == STATE_QUEUE:
+            if len(self.sendBuffer) == 0 and self.state == STATE_QUEUE:
                 self.state = STATE_IDLE
                 # TODO: from queued to state idle transition
 
@@ -78,33 +90,63 @@ class ReliablePacketHandler(SerialPacketHandler):
         ack.id = packet.id
         ack.sequence = packet.sequence
         super(ReliablePacketHandler, self).send(ack)
-        self.inputBuffer.append(packet)
+
+        # maintain max length of inputCache list
+        while len(self.recvCache) > INPUTCACHE_LENGTH:
+            self.recvCache.pop(0)
+
+        # don't append to inputBuffer if its a retransmitted packet (destination received the ACK after retransmitting)
+        for p in self.recvCache:
+            if packet.source == p.source and packet.destination == p.destination and packet.id == p.id and \
+                    packet.sequence == p.sequence:
+                return
+
+        self.recvCache.append(packet)
+        self.recvBuffer.append(packet)
 
     def send(self, packet):
+        packet.sequence = self.sequence
         # this will cause the packet to be sent on the wire
         super(ReliablePacketHandler, self).send(packet)
+
         # mmm python stuff
         packet.sendTimes = list()
         packet.sendTimes.append(datetime.datetime.now())
-        self.buffer.append(packet)
+
+        self.sendBuffer.append(packet)
+
         if self.state == STATE_IDLE:
             self.state = STATE_QUEUE
             # TODO: from idle to queued transition
 
+        # increment sequence
+        # TODO: this should be on a per pid & destination level, not global like now
+        self.sequence += 1
+        if self.sequence > 15:
+            self.sequence = 0
+            # reset
+
     def receive(self):
-        if len(self.inputBuffer) != 0:
-            p = self.inputBuffer[0]
-            self.inputBuffer.remove(p)
-            return p
-        return None
+        if len(self.recvBuffer) == 0:
+            return None
+
+        p = self.recvBuffer[0]
+        self.recvBuffer.remove(p)
+        return p
 
     def handle_queue(self):
         # here we will go over the queue and resend packets
         # if self.state == STATE_IDLE:
         #     return
 
-        for p in self.buffer:
-            if (datetime.datetime.now() - p.sendTimes[-1]).total_seconds() > 1:
+        for p in self.sendBuffer:
+            if (datetime.datetime.now() - p.sendTimes[-1]).total_seconds() > RETRANSMISSION_WAIT:
+                if len(p.sendTimes) > RETRANSMISSION_MAX:
+                    # TODO: raise exception? for now just dropping packet
+                    logging.info('dropping packet after %d retransmissions' % RETRANSMISSION_MAX)
+                    self.sendBuffer.remove(p)
+                    continue
+
                 # resend the packet
                 logging.info('retransmission of packet')
                 super(ReliablePacketHandler, self).send(p)
@@ -121,7 +163,6 @@ class Client:
     def run(self):
         self.packetHandler.start()
         time.sleep(0.2)
-        pid = 0
         try:
             print('reliable comm with %d started' % self.destination)
             while True:
@@ -131,6 +172,7 @@ class Client:
                     i = i[0:5]
                 if len(i) == 0:
                     continue
+                # TODO: wrap this up in an alternate packetHandler method?
                 packet = Packet()
                 packet.destination = self.destination
                 packet.source = ADDRESS_LOCAL
@@ -139,10 +181,6 @@ class Client:
                 packet.protocol = PROTO_ACKREQ  # specifies that we require an ack to be sent back
                 packet.options = OPT_NONE
                 self.packetHandler.send(packet)
-                pid += 1
-                if pid > 15:
-                    pid = 0
-                    # reset
         finally:
             self.stop()
 
