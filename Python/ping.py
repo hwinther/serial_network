@@ -3,6 +3,9 @@ import time
 import logging
 import sys
 
+# ping interval in seconds
+PING_INTERVAL = 2.5
+
 
 class App:
     def __init__(self, dest, dev=None):
@@ -32,7 +35,7 @@ class App:
                     break
 
                 try:
-                    time.sleep(2)
+                    time.sleep(PING_INTERVAL)
                 except:
                     break
 

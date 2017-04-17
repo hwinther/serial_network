@@ -12,7 +12,7 @@ STATE_IDLE = 0
 STATE_QUEUE = 1
 
 # seconds to wait before sending packet again
-RETRANSMISSION_WAIT = 2
+RETRANSMISSION_WAIT = 2.5
 # maximum amount of received packets to buffer - this is done to avoid exposing retransmitted packets
 INPUTCACHE_LENGTH = 10
 # max amount of retransmissions - after this we raise an exception
@@ -170,11 +170,20 @@ class Client:
             print('reliable comm with %d started' % self.destination)
             while True:
                 i = raw_input('> ')
+                if len(i) == 0:
+                    continue
+                il = i.lower()
+                if il == 'logging info':
+                    print('setting loglevel to INFO')
+                    rootLogger.setLevel(logging.INFO)
+                    continue
+                if il == 'logging debug':
+                    print('setting loglevel to DEBUG')
+                    rootLogger.setLevel(logging.DEBUG)
+                    continue
                 if len(i) > 5:
                     print('Larger than 5, truncating to 5')
                     i = i[0:5]
-                if len(i) == 0:
-                    continue
                 # TODO: wrap this up in an alternate packetHandler method?
                 packet = Packet()
                 packet.destination = self.destination
@@ -192,11 +201,11 @@ class Client:
         self.packetHandler.stop()
 
 
+rootLogger = logging.getLogger()
 if __name__ == '__main__':
     log_level = logging.INFO
 
     logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
-    rootLogger = logging.getLogger()
     rootLogger.setLevel(log_level)
 
     consoleHandler = logging.StreamHandler()

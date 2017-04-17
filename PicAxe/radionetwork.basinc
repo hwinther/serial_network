@@ -16,8 +16,19 @@ symbol data4 = b9
 
 symbol PROTO_RAW = 0x0
 symbol PROTO_ICMP = 0x1
-symbol PROTO_RES1 = 0x2
-symbol PROTO_RES2 = 0x4
-symbol OPT_FORWARD = 0x8
+symbol PROTO_ACKREQ = 0x2
+symbol PROTO_SYN = 0x3
+symbol PROTO_SYNACK = 0x4
+symbol PROTO_FIN = 0x5
+symbol PROTO_FINACK = 0x6
+symbol PROTO_RES1 = 0x7
+
+symbol OPT_NONE = 0x0
+symbol OPT_ACK = 0x1
+symbol OPT_RST = 0x2
+
 symbol ICMP_PING = 0x0
 symbol ICMP_PONG = 0x1
+
+symbol ADDRESS_NETWORKIDENTIFIER = 0
+symbol ADDRESS_BROADCAST = 255
