@@ -105,9 +105,14 @@ class ReliablePacketHandler(SerialPacketHandler):
         self.recvBuffer.append(packet)
 
     def send(self, packet):
-        packet.sequence = self.sequence
+        if packet.protocol == PROTO_ACKREQ:
+            packet.sequence = self.sequence
+
         # this will cause the packet to be sent on the wire
         super(ReliablePacketHandler, self).send(packet)
+
+        if packet.protocol != PROTO_ACKREQ:
+            return
 
         # mmm python stuff
         packet.sendTimes = list()
