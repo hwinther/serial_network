@@ -35,6 +35,15 @@ void setup() {
 void loop() {
 
 	ledBlink();
+  /*
+  Packet ping = Packet(ADDRESS_LOCAL, 186, PROTO_ICMP, OPT_NONE, 15, 0, 0);
+  uint8_t pingData[1] = { ICMP_PING };
+  ping.set_data(pingData);
+  ping.set_chk(ping.calculate_checksum());
+  serialDebugPacket(ping);
+  serial3SendPacket(ping);
+  return;
+  */
 
 	if (packetComplete) {
 		//reset complete flag and store packetdata elsewhere in memory so it doesnt get changed? not sure how the serial recv works
@@ -43,17 +52,14 @@ void loop() {
 
 		serialDebugPacket(packet);
 
-		Serial.print("Checksum is valid? ");
-		if (packet.is_checksum_valid())
+		if (packet.is_checksum_valid() == false)
 		{
-			Serial.println("yes");
-		}
-		else {
-			Serial.println("no");
+      Serial.print("Ignoring packet with invalid checksum");
+			return;
 		}
 
-		Serial.print("destination = ");
-		Serial.println(packet.get_destination(), DEC);
+		//Serial.print("destination = ");
+		//Serial.println(packet.get_destination(), DEC);
 		if (packet.get_destination() == 255 || packet.get_destination() == ADDRESS_LOCAL)
 			//if (packet.is_relevant(ADDRESS_LOCAL))
 		{
@@ -71,13 +77,13 @@ void loop() {
 				uint8_t pongData[1] = { ICMP_PONG };
 				pongReply.set_data(pongData);
 				pongReply.set_chk(pongReply.calculate_checksum()); //perhaps this should be elsewhere
-				serialDebugPacket(pongReply);
+				//serialDebugPacket(pongReply);
 				serial3SendPacket(pongReply);
         return;
 			}
 
       //default handling, send rst?
-      Packet reply = Packet(ADDRESS_LOCAL, packet.get_source(), packet.get_proto(), OPT_RST, 15, packet.get_pid(), packet.get_seq());
+      //Packet reply = Packet(ADDRESS_LOCAL, packet.get_source(), packet.get_proto(), OPT_RST, 15, packet.get_pid(), packet.get_seq());
 		}
 
 	}
