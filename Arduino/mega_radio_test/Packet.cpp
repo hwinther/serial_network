@@ -2,25 +2,22 @@
 
 Packet::Packet()
 {
-	/*for(int i = 0; i > sizeof(PacketData); ++i)
-	{
-		PacketData[i] = 0x0;
-	}*/
 }
 
 Packet::Packet(uint8_t *packetData)
 {
-  //sizeof(packetData)
+	//sizeof(packetData)
 	for (int i = 0; i < 10; ++i)
 	{
 		PacketData[i] = packetData[i];
 	}
 }
 
-Packet::Packet(uint8_t source, uint8_t destination, uint8_t opt, uint8_t ttl, uint8_t pid, uint8_t seq)
+Packet::Packet(uint8_t source, uint8_t destination, uint8_t proto, uint8_t opt, uint8_t ttl, uint8_t pid, uint8_t seq)
 {
 	set_source(source);
 	set_destination(destination);
+	set_proto(proto);
 	set_opt(opt);
 	set_ttl(ttl);
 	set_pid(pid);
@@ -33,12 +30,17 @@ Packet::~Packet()
 
 uint8_t Packet::get_dlen()
 {
-	return PacketData[0] >> 4;
+	return PacketData[0] >> 5;
+}
+
+uint8_t Packet::get_proto()
+{
+	return (PacketData[0] & 0x1C) >> 2;
 }
 
 uint8_t Packet::get_opt()
 {
-	return PacketData[0] & 0xF;
+	return PacketData[0] & 0x3;
 }
 
 uint8_t Packet::get_ttl()
@@ -74,12 +76,18 @@ uint8_t Packet::get_destination()
 
 void Packet::set_dlen(uint8_t value)
 {
-	PacketData[0] = PacketData[0] | value << 4;
+	PacketData[0] = PacketData[0] | value << 5;
+}
+
+void Packet::set_proto(uint8_t value)
+{
+	//assign        set relevant bits to 0  bitshift      remove bits outside of range
+	PacketData[0] = PacketData[0] & 0xE3 | value << 2 & 0x1C;
 }
 
 void Packet::set_opt(uint8_t value)
 {
-	PacketData[0] = PacketData[0] & 0xf0 | value & 0x0f;
+	PacketData[0] = PacketData[0] & 0xFC | value & 0x3;
 }
 
 void Packet::set_ttl(uint8_t value)
@@ -114,18 +122,18 @@ void Packet::set_destination(uint8_t value)
 
 void Packet::set_data(uint8_t *value)
 {
-  int s = sizeof(value);
-  if (s == 0)
-  {
-    set_dlen(0);
-    return;
-  }
-  
-	for(int i = 0; i < s; ++i)
+	int s = sizeof(value);
+	if (s == 0)
+	{
+		set_dlen(0);
+		return;
+	}
+
+	for (int i = 0; i < s; ++i)
 	{
 		PacketData[5 + i] = value[i];
 	}
-	set_dlen(s-1);
+	set_dlen(s - 1);
 }
 
 uint8_t Packet::calculate_checksum()
@@ -133,8 +141,8 @@ uint8_t Packet::calculate_checksum()
 	uint8_t checksum = 0;
 	for (int i = 0; i < 10; ++i)
 	{
-    checksum ^= PacketData[i] >> 4; //hnibble
-		// we have to skip the checksum itself when creating a checksum, duh
+		checksum ^= PacketData[i] >> 4; //hnibble
+			// we have to skip the checksum itself when creating a checksum, duh
 		if (i != 1)
 		{
 			checksum ^= PacketData[i] & 0xF; //lnibble

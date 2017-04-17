@@ -27,7 +27,8 @@ void setup() {
 	digitalWrite(ledPin, HIGH);
 	delay(1000);
 	digitalWrite(ledPin, LOW);
-	Serial.println("Mega radio test init");
+	Serial.print("Mega radio test - ADDRESS_LOCAL is ");
+  Serial.println(ADDRESS_LOCAL, DEC);
 	Serial3.begin(2400, SERIAL_8N1);
 }
 
@@ -35,50 +36,48 @@ void loop() {
 
 	ledBlink();
 
-	/*
-	byte msg[17] = { PREAMBLE_BYTE, PREAMBLE_BYTE, PREAMBLE_BYTE, SOM_BYTE, 1, 2, 3, 4, 5, 6, 7, 8, 9, seq, EOM_BYTE, POSTAMBLE_BYTE, POSTAMBLE_BYTE };
-	Serial3.write(msg, 17);
-	delay(2000);
-	seq++;
-	if (seq == 255)
-	{
-		seq = 0;
-	}
-	*/
-
 	if (packetComplete) {
 		//reset complete flag and store packetdata elsewhere in memory so it doesnt get changed? not sure how the serial recv works
 		packetComplete = false;
-    Packet packet = Packet(packetData);
+		Packet packet = Packet(packetData);
 
-    serialDebugPacket(packet);
-		
+		serialDebugPacket(packet);
+
 		Serial.print("Checksum is valid? ");
-    if (packet.is_checksum_valid())
-    {
-      Serial.println("yes");
-    }
-    else {
-      Serial.println("no");
-    }
-
-    Serial.print("destination = ");
-    Serial.println(packet.get_destination(), DEC);
-		if (packet.get_destination() == 255 || packet.get_destination() == ADDRESS_LOCAL)
-    //if (packet.is_relevant(ADDRESS_LOCAL))
+		if (packet.is_checksum_valid())
 		{
-      Serial.println("packet is relevant to me");
-			if (packet.get_opt() & PROTO_ICMP && packet.get_dlen() == 1 && packet.PacketData[5] == ICMP_PING)
+			Serial.println("yes");
+		}
+		else {
+			Serial.println("no");
+		}
+
+		Serial.print("destination = ");
+		Serial.println(packet.get_destination(), DEC);
+		if (packet.get_destination() == 255 || packet.get_destination() == ADDRESS_LOCAL)
+			//if (packet.is_relevant(ADDRESS_LOCAL))
+		{
+			Serial.println("packet is relevant to me");
+      if (packet.get_opt() & OPT_ACK)
+      {
+        return; //dont reply to ACK
+      }
+     
+			if (packet.get_proto() == PROTO_ICMP && packet.get_dlen() == 1 && packet.PacketData[5] == ICMP_PING)
 			{
 				Serial.println("Received ping packet to me, send pong");
 				//TODO: actually send pong back
-				Packet pongReply = Packet(ADDRESS_LOCAL, packet.get_source(), PROTO_ICMP, 15, packet.get_pid(), 0);
-        uint8_t pongData[1] = { ICMP_PONG };
-        pongReply.set_data(pongData);
+				Packet pongReply = Packet(ADDRESS_LOCAL, packet.get_source(), PROTO_ICMP, OPT_NONE, 15, packet.get_pid(), packet.get_seq());
+				uint8_t pongData[1] = { ICMP_PONG };
+				pongReply.set_data(pongData);
 				pongReply.set_chk(pongReply.calculate_checksum()); //perhaps this should be elsewhere
-        //serialDebugPacket(pongReply);
+				serialDebugPacket(pongReply);
 				serial3SendPacket(pongReply);
+        return;
 			}
+
+      //default handling, send rst?
+      Packet reply = Packet(ADDRESS_LOCAL, packet.get_source(), packet.get_proto(), OPT_RST, 15, packet.get_pid(), packet.get_seq());
 		}
 
 	}

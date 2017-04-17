@@ -9,10 +9,16 @@ const uint8_t POLYNOMIAL = 0x8C; //140
 
 const uint8_t PROTO_RAW = 0x0;
 const uint8_t PROTO_ICMP = 0x1;
-const uint8_t PROTO_RES1 = 0x2;
-const uint8_t PROTO_RES2 = 0x4;
+const uint8_t PROTO_ACKREQ = 0x2;
+const uint8_t PROTO_SYN = 0x3;
+const uint8_t PROTO_SYNACK = 0x4;
+const uint8_t PROTO_FIN = 0x5;
+const uint8_t PROTO_FINACK = 0x6;
+const uint8_t PROTO_RES1 = 0x7;
 
-const uint8_t OPT_FORWARD = 0x8;
+const uint8_t OPT_NONE = 0x0;
+const uint8_t OPT_ACK = 0x1;
+const uint8_t OPT_RST = 0x2;
 
 const uint8_t ICMP_PING = 0x0;
 const uint8_t ICMP_PONG = 0x1;

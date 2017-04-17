@@ -47,14 +47,14 @@ class PacketHandler(Thread):
         # type: (Packet) -> None
         # the difference between recv and handle_packet is that recv is blocking further reads
         # handle_packet runs in its own thread and can take all the time it wants to process
-        if packet.is_valid_checksum() == False:
+        if not packet.is_valid_checksum():
             logging.warn('Ignoring packet with invalid checksum')
             packet.print_raw(logging.DEBUG)
         elif packet.source == ADDRESS_LOCAL:
             logging.debug('Ignoring packet from self')
-            packet.print_raw(logging.DEBUG)
+            # packet.print_raw(logging.DEBUG)
         elif packet.destination in [ADDRESS_LOCAL, ADDRESS_BROADCAST]:
-            logging.debug('Received: ' + str(packet))
+            logging.debug('\nReceived:\n%s' % str(packet))
             self.ReceiveBuffer.append(packet)
         else:
             logging.debug('Ignoring packet that isn\'t for me')
@@ -62,7 +62,7 @@ class PacketHandler(Thread):
 
     def send(self, packet):
         # type: (Packet) -> None
-        logging.debug('sending:')
+        logging.debug('\nSending:')
         packet.print_raw(logging.DEBUG)
 
     def send_ping(self, dst, pid=0):
@@ -124,8 +124,10 @@ class SocketPacketHandler(PacketHandler):
                 received_data, client_address = self.Sock.recvfrom(1024)
             except socket.timeout:
                 continue
+            if received_data == '':
+                continue
             # TODO: handle buffer assembly for multiple clients
-            logging.debug('repr: ' + repr(received_data) + ' ' + str(client_address))
+            # logging.debug('repr: ' + repr(received_data) + ' ' + str(client_address))
             # TODO: handle packet content parsing (start at SOM, end at EOM, maybe also do a checksum)
             self.PacketParser.parse_buffer(received_data)
             for packet in self.PacketParser.Packets:
@@ -157,6 +159,8 @@ class SerialPacketHandler(PacketHandler):
         logging.info('Reading data from serial port ' + self.Serial.port)
         while not self.StopEvent.is_set():
             received_data = self.Serial.read(100)
+            if received_data == '':
+                continue
             self.PacketParser.parse_buffer(received_data)
             for packet in self.PacketParser.Packets:
                 self.recv(packet)
