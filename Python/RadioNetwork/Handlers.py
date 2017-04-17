@@ -100,7 +100,7 @@ Override this to implement custom packet handling
             return
         delta = datetime.datetime.now() - self.pingTime[packet.id]
         self.pingTime[packet.id] = None
-        print('pong: roundtrip time for %d was %d' % (packet.id, delta.microseconds), delta)
+        print('pong: roundtrip time for %d was %ss' % (packet.id, delta.total_seconds()))
 
     def stop(self):
         for event in self.StopEvents:
