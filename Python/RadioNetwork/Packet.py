@@ -88,35 +88,39 @@ class Packet(object):
         logging.debug('self.checksum = %d chk = %d' % (self.checksum, chk))
         return self.checksum == chk
 
-    def __str__(self):
-        proto = ''
+    def protocol_str(self):
         if self.protocol == PROTO_RAW:
-            proto = 'proto:raw'
+            return 'proto:raw'
         elif self.protocol & PROTO_ICMP:
-            proto = 'proto:icmp'
+            return 'proto:icmp'
         elif self.protocol & PROTO_ACKREQ:
-            proto = 'proto:acqreq'
+            return 'proto:acqreq'
         elif self.protocol & PROTO_SYN:
-            proto = 'proto:syn'
+            return 'proto:syn'
         elif self.protocol & PROTO_SYNACK:
-            proto = 'proto:synack'
+            return 'proto:synack'
         elif self.protocol & PROTO_FIN:
-            proto = 'proto:fin'
+            return 'proto:fin'
         elif self.protocol & PROTO_FINACK:
-            proto = 'proto:finack'
+            return 'proto:finack'
         elif self.protocol & PROTO_RES1:
-            proto = 'proto:res1'
+            return 'proto:res1'
+        else:
+            return 'proto:whathappened?'
 
+    def options_str(self):
         option_list = list()
         if self.options & OPT_ACK:
             option_list.append('opt:ack')
         if self.options & OPT_RST:
             option_list.append('opt:rst')
+        return ', '.join(option_list)
 
-        return 'datalength: %d\nprotocol: %d (%s)\noptions: %d (%s)\nttl: %d\nchecksum: %d\nid: %d\nsequence: %d\n' \
-               'source: %s\ndestination: %s\ndata: %s' \
-               % (self.dataLength, self.protocol, proto, self.options, ', '.join(option_list), self.timeToLive,
-                  self.checksum, self.id, self.sequence, self.source, self.destination, repr(self.data))
+    def __str__(self):
+        return 'protocol: %d (%s)\noptions: %d (%s)\nttl: %d\nchecksum: %d\nid: %d\nsequence: %d\n' \
+               'source: %s\ndestination: %s\ndatalength: %d\ndata: %s' \
+               % (self.protocol, self.protocol_str(), self.options, self.options_str(), self.timeToLive,
+                  self.checksum, self.id, self.sequence, self.source, self.destination, self.dataLength, repr(self.data))
 
     @classmethod
     def convert_to_class(cls, obj):
@@ -158,7 +162,9 @@ class Packet(object):
         ttlchk = self.calculate_ttlchk()
         pidseq = self.calculate_pidseq()
         if not loglevel:
-            print 'dlenopt\t%s\t0x%x\t%d' % (bin(dlenopt), dlenopt, dlenopt)
+            print 'dlenopt\t%s\t0x%x\t%d\tdlen: %d proto: %d (%s) opt: %d (%s)' %\
+                  (bin(dlenopt), dlenopt, dlenopt, self.dataLength, self.protocol, self.protocol_str(),
+                   self.options, self.options_str())
             print 'ttlchk\t%s\t0x%x\t%d' % (bin(ttlchk), ttlchk, ttlchk)
             print 'pidseq\t%s\t0x%x\t%d' % (bin(pidseq), pidseq, pidseq)
             print 'source\t%s\t0x%x\t%d' % (bin(self.source), self.source, self.source)
@@ -204,11 +210,12 @@ class IcmpPingPacket(Packet):
         super(IcmpPingPacket, self).__init__(data)
 
     @staticmethod
-    def craft_packet(dst, src=ADDRESS_LOCAL, proto=0, opt=0, ttl=0, pid=0, seq=0, data='', packet=None):
-        opt |= PROTO_ICMP  # add icmp protocol in case its missing
+    def craft_packet(dst, src=ADDRESS_LOCAL, proto=0, opt=0, ttl=0, pid=0, seq=0, data=''):
+        proto = PROTO_ICMP  # set icmp protocol in case its missing
+        data = chr(ICMP_PING)
         # return packet with ICMP_PING data, that's it
         packet = Packet.craft_packet(dst=dst, src=src, proto=proto, opt=opt, ttl=ttl, pid=pid, seq=seq,
-                                     data=chr(ICMP_PING))
+                                     data=data)
         IcmpPingPacket.convert_to_class(packet)
         return packet
 
@@ -224,10 +231,11 @@ class IcmpPongPacket(Packet):
 
     @staticmethod
     def craft_packet(dst, src=ADDRESS_LOCAL, proto=0, opt=0, ttl=0, pid=0, seq=0, data=''):
-        opt |= PROTO_ICMP  # add icmp protocol in case its missing
+        proto = PROTO_ICMP  # set icmp protocol in case its missing
+        data = chr(ICMP_PONG)
         # return packet with ICMP_PING data, that's it
         packet = Packet.craft_packet(dst=dst, src=src, proto=proto, opt=opt, ttl=ttl, pid=pid, seq=seq,
-                                     data=chr(ICMP_PONG))
+                                     data=data)
         IcmpPongPacket.convert_to_class(packet)
         return packet
 

@@ -94,7 +94,10 @@ Override this to implement custom packet handling
 
     def recv_icmp_pong(self, packet):
         # type: (IcmpPongPacket) -> None
-        # print 'pong packet detected'
+        logging.debug('pong packet detected')
+        if self.pingTime[packet.id] is None:
+            # pong retransmission?
+            return
         delta = datetime.datetime.now() - self.pingTime[packet.id]
         self.pingTime[packet.id] = None
         print('pong: roundtrip time for %d was %d' % (packet.id, delta.microseconds), delta)
