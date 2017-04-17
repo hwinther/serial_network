@@ -162,19 +162,21 @@ class Packet(object):
         ttlchk = self.calculate_ttlchk()
         pidseq = self.calculate_pidseq()
         if not loglevel:
-            print 'dlenopt\t%s\t0x%x\t%d\tdlen: %d proto: %d (%s) opt: %d (%s)' %\
+            print('dlenopt\t%s\t0x%x\t%d\tdlen: %d proto: %d (%s) opt: %d (%s)' %
                   (bin(dlenopt), dlenopt, dlenopt, self.dataLength, self.protocol, self.protocol_str(),
-                   self.options, self.options_str())
-            print 'ttlchk\t%s\t0x%x\t%d' % (bin(ttlchk), ttlchk, ttlchk)
-            print 'pidseq\t%s\t0x%x\t%d' % (bin(pidseq), pidseq, pidseq)
-            print 'source\t%s\t0x%x\t%d' % (bin(self.source), self.source, self.source)
-            print 'dest\t%s\t0x%x\t%d' % (bin(self.destination), self.destination, self.destination)
+                   self.options, self.options_str()))
+            print('ttlchk\t%s\t0x%x\t%d' % (bin(ttlchk), ttlchk, ttlchk))
+            print('pidseq\t%s\t0x%x\t%d' % (bin(pidseq), pidseq, pidseq))
+            print('source\t%s\t0x%x\t%d' % (bin(self.source), self.source, self.source))
+            print('dest\t%s\t0x%x\t%d' % (bin(self.destination), self.destination, self.destination))
             i = 0
             for c in self.data:
-                print 'data%d\t%s' % (i, bin(ord(c)))
+                print('data%d\t%s' % (i, bin(ord(c))))
                 i += 1
         else:
-            logging.debug('dlenopt\t%s\t0x%x\t%d' % (bin(dlenopt), dlenopt, dlenopt))
+            logging.debug('dlenopt\t%s\t0x%x\t%d\tdlen: %d proto: %d (%s) opt: %d (%s)' %
+                  (bin(dlenopt), dlenopt, dlenopt, self.dataLength, self.protocol, self.protocol_str(),
+                   self.options, self.options_str()))
             logging.debug('ttlchk\t%s\t0x%x\t%d' % (bin(ttlchk), ttlchk, ttlchk))
             logging.debug('pidseq\t%s\t0x%x\t%d' % (bin(pidseq), pidseq, pidseq))
             logging.debug('source\t%s\t0x%x\t%d' % (bin(self.source), self.source, self.source))
