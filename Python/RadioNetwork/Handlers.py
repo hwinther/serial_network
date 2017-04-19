@@ -62,8 +62,8 @@ class PacketHandler(Thread):
 
     def send(self, packet):
         # type: (Packet) -> None
-        logging.debug('\nSending:')
-        packet.print_raw(logging.DEBUG)
+        logging.debug('\nSending:\n%s' % str(packet))
+        # packet.print_raw(logging.DEBUG)
 
     def send_ping(self, dst, pid=0):
         # type: (int) -> None

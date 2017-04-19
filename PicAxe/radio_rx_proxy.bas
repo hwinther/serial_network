@@ -36,8 +36,8 @@ goto main
 
 send:
 	' shouldn't need this when sending over serial to the connected device
-	'for b11 = 0 to 9 ' 10
-	'	serout TXPIN, TXSPEED, (POLYNOMINAL)
-	'next b11
+	for b11 = 0 to 9 ' 10
+		serout TXPIN, TXSPEED, (POLYNOMINAL)
+	next b11
 	serout TXPIN, TXSPEED, (PREAMBLE, PREAMBLE, SOM, dlenopt, ttlchk, pidseq, src, dst, data0, data1, data2, data3, data4, EOM, POSTAMBLE, POSTAMBLE)
 return

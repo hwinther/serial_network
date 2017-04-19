@@ -1,0 +1,2 @@
+        unsigned int  data = 0x20DF10EF; //power on/off
+        irsend.sendNEC(data, 32);

@@ -1,7 +1,7 @@
 ' radio send packet test
 #include "radionetwork.basinc"
 
-setfreq m8
+'setfreq m8
 
 symbol TXPIN = 2
 symbol TXSPEED = N2400_8

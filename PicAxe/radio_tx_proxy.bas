@@ -7,25 +7,35 @@ symbol TXSPEED = N2400_8
 symbol RXPIN = 1
 symbol RXSPEED = T2400_8
 'symbol LOCAL_ADDRESS = 11
+'#define LED
 symbol LEDPIN = 4
 
 'sertxd("send proxy", 10, 13)
-'high LEDPIN
-'pause 500
-'low LEDPIN
-'pause 500
-'high LEDPIN
-'pause 500
-'low LEDPIN
+#ifdef LED
+high LEDPIN
+pause 500
+low LEDPIN
+pause 500
+high LEDPIN
+pause 500
+low LEDPIN
+#endif
 
 main:
 	serin RXPIN, RXSPEED, (PREAMBLE, SOM), dlenopt, ttlchk, pidseq, src, dst, data0, data1, data2, data3, data4
+	
 	'sertxd ("got input: ")
 	'sertxd (#dlenopt, " ", #ttlchk, " ", #pidseq, " ", #src, " ", #dst, " ", #data0, " ", #data1, " ", #data2, " ", #data3, " ", #data4, 10, 13)
 	
-	'high LEDPIN
+	#ifdef LED
+	high LEDPIN
+	#endif
+
 	gosub send
-	'low LEDPIN
+	
+	#ifdef LED
+	low LEDPIN
+	#endif
 goto main
 
 send:
