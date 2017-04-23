@@ -63,7 +63,7 @@ if __name__ == '__main__':
     if len(sys.argv) == 3:
         device = sys.argv[2]
 
-    log_level = logging.INFO
+    log_level = logging.DEBUG
 
     logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
     rootLogger = logging.getLogger()

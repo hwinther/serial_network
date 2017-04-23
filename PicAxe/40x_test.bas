@@ -1,4 +1,4 @@
-' radio infinite recv test
+' radio infinite recv/send test
 #include "radionetwork.basinc"
 
 SYMBOL TX_PIN = B.4
