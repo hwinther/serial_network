@@ -2,13 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="4a3b432e-07cf-4fce-aed3-4cb5a429066a" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.vs/Radio/v14/.suo" afterPath="$PROJECT_DIR$/.vs/Radio/v14/.suo" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/Arduino/mega_radio_test/mega_radio_test.ino" afterPath="$PROJECT_DIR$/Arduino/mega_radio_test/mega_radio_test.ino" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/PicAxe/40x_test.bas" afterPath="$PROJECT_DIR$/PicAxe/40x_test.bas" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/PicAxe/40x_test.bas.settings" afterPath="$PROJECT_DIR$/PicAxe/40x_test.bas.settings" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/Python/RadioNetwork/Handlers.py" afterPath="$PROJECT_DIR$/Python/RadioNetwork/Handlers.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/Python/ping.py" afterPath="$PROJECT_DIR$/Python/ping.py" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -570,7 +564,14 @@
       <option name="project" value="LOCAL" />
       <updated>1492627471367</updated>
     </task>
-    <option name="localTasksCounter" value="15" />
+    <task id="LOCAL-00015" summary="more work on reliable">
+      <created>1492973236470</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1492973236471</updated>
+    </task>
+    <option name="localTasksCounter" value="16" />
     <servers />
   </component>
   <component name="TestHistory">
