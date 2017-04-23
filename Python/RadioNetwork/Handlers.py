@@ -153,15 +153,15 @@ class SerialPacketHandler(PacketHandler):
             port = 'COM3'
         if baud is None:
             baud = 2400
-        self.Serial = serial.Serial(port, baud, timeout=1)
+        self.Serial = serial.Serial(port, baud, timeout=0.5)
         self.PacketParser = PacketParser()
-        self.lock = threading.Lock()
+        # self.lock = threading.Lock()
 
     def run(self):
         logging.info('Reading data from serial port ' + self.Serial.port)
         while not self.StopEvent.is_set():
-            with self.lock:
-                received_data = self.Serial.read(100)
+            # with self.lock:
+            received_data = self.Serial.read(100)
             if received_data == '':
                 continue
             self.PacketParser.parse_buffer(received_data)
@@ -177,8 +177,8 @@ class SerialPacketHandler(PacketHandler):
         # type: (Packet) -> None
         packet_data = packet.get_packet_data()  # to get the checksum corrected before printing it out in supers debug
         super(SerialPacketHandler, self).send(packet)
-        with self.lock:
-            self.Serial.write(chr(POLYNOMIAL)*5 + chr(PREAMBLE)*2 + chr(SOM) + packet_data + chr(EOM) + chr(POSTAMBLE)*4)
+        # with self.lock:
+        self.Serial.write(chr(POLYNOMIAL)*5 + chr(PREAMBLE)*2 + chr(SOM) + packet_data + chr(EOM) + chr(POSTAMBLE)*4)
 
 
 class PacketParser:
